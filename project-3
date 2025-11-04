@@ -1,0 +1,110 @@
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, classification_report
+import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+
+np.random.seed(42)
+
+#similar to homework 2 generate function
+def generateData(size=500, bias=0.55):
+  #generate systolic blood pressure data: 90-200mmHg
+  bp = np.random.uniform(90, 200, size)
+  #generate cholesterol data: 150-350 mg/dL
+  chol = np.random.uniform(150, 350, size)
+
+  # normalize ranges [0, 1]
+  bp = (bp-90)/(200-90)
+  chol = (chol - 150)/(350-150)
+
+  # combine into 1 variable (matrix)
+  X = np.column_stack([bp, chol])
+
+  #complicated nonlinear risk function
+  z = (0.3*bp
+       + 0.2*chol
+       + 1.2*bp*chol
+       + 0.8*np.sin(2*np.pi*bp)*np.cos(2*np.pi*chol)
+       + 0.5*(bp-0.5)**3
+       + 0.4*(chol-0.5)**3
+       + np.random.normal(0, 0.2, size)# noise
+       - bias
+  )
+
+  risk = (z > 0).astype(int)#risk is only 0 or 1
+
+  return X, risk
+
+def partOne():
+  X, risk = generateData(1000)
+
+  X_train, X_test, risk_train, risk_test = train_test_split(X, risk, test_size=0.2, random_state=42)
+
+  #neural network model
+  model = MLPClassifier(hidden_layer_sizes=(100, 100),
+                        solver='lbfgs',#better weights/biases
+                        max_iter=1000, #more solver iterations
+                        random_state=1)
+
+  #train:
+  model.fit(X_train, risk_train)
+
+  #predict:
+  probs = model.predict_proba(X_test)[:,1]
+  preds = (probs >= 0.5).astype(int)
+
+  #------------------TRUE DATA PLOT----------------
+  print("true data plot:\n")
+  plt.figure()
+  plt.scatter(X[risk==0, 0], X[risk==0, 1], c="blue", label="Low risk (true)")
+  plt.scatter(X[risk==1, 0], X[risk==1, 1], c="red", label="High risk (true)")
+  plt.xlabel("Systolic Blood Pressure (mmHg -> normalized)")
+  plt.ylabel("Cholesterol (mg/dL -> normalized)")
+  plt.title("Cardiovascular Risk with TRUE Labels")
+  plt.legend()
+  plt.show()
+  print("\n")
+
+  #------------------MODEL PREDICTION MAP----------------
+  print("prediction data plot:\n")
+  assert len(preds) == len(X_test) == len(risk_test)
+
+  plt.figure()
+  plt.scatter(X_test[preds==0, 0], X_test[preds==0, 1], c="blue", label="Prediction: low")
+  plt.scatter(X_test[preds==1, 0], X_test[preds==1, 1], c="red", label="Prediction: high")
+  plt.xlabel("Systolic Blood Pressure (normalized)")
+  plt.ylabel("Cholesterol (normalized)")
+  plt.title("MLP Predictions (test set)")
+  plt.legend()
+  plt.show()
+  print("\n")
+
+  #------------------PREDICTION ACCURACY BREAKDOWN----------------
+  print("accuracy chart:\n")
+  correct_high = (risk_test==1) & (preds==1)
+  correct_low = (risk_test==0) & (preds==0)
+  wrong_high = (risk_test==0) & (preds==1)
+  wrong_low = (risk_test==1) & (preds==0)
+
+  plt.figure()
+  plt.scatter(X_test[correct_low, 0], X_test[correct_low, 1], marker='o', c='blue', label='predicted low - correct')
+  plt.scatter(X_test[correct_high, 0], X_test[correct_high, 1], marker='o', c='red', label='predicted high - correct')
+  plt.scatter(X_test[wrong_high, 0], X_test[wrong_high, 1], marker='x', c='red', label='predicted high - incorrect')
+  plt.scatter(X_test[wrong_low, 0], X_test[wrong_low, 1], marker='x', c='blue', label='predicted low - incorrect')
+  plt.xlabel("Systolic BP (normalized)")
+  plt.ylabel("Cholesterol (normalized)")
+  plt.title("Prediction Accuracy Breakdown (test set)")
+  plt.legend()
+  plt.show()
+
+  #-------------------------METRICS-------------------------------
+  acc = accuracy_score(risk_test, preds)
+  print("Accuracy: ", acc, "\n")
+
+partOne()
