@@ -1,0 +1,42 @@
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+def generateFCData():
+  x = np.arange(1, 61)
+
+  noise = np.random.uniform(-5.9, 5.9, 60)
+  y = (0.7*x) + 60 + noise #linear function: y=mx+b
+
+  return x, y
+
+def partOne():
+  x, y = generateFCData()
+
+  #2D x array -- split the data
+  X_train, X_test, y_train, y_test = train_test_split(x.reshape(-1, 1), y)
+  #train the model
+  reg = LinearRegression().fit(X_train.reshape(-1, 1), y_train)
+  #make predictions
+  predict = reg.predict(X_test.reshape(-1, 1))
+
+  #learned slopes, the [0] index has the 1 elt array to get the scalar slope
+  coef = reg.coef_
+  #learned intercept/independent part b of y=wx+b
+  inter = reg.intercept_
+
+  #prints coef to 8 decimal places and inter to 14 decimal places with f-string
+  print(f"Coefficients: {coef} Intercept: {inter}")
+
+  #plot the prediction line
+  plt.plot(X_test, predict, label=f"y = {coef}x + {inter}", color="red")
+  #plot the actual data points
+  plt.scatter(X_test, y_test)
+  plt.title("Heart Rate over Time")
+  plt.ylabel('heart rate')
+  plt.xlabel('time')
+  plt.show()
+
+partOne()
