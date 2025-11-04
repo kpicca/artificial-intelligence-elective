@@ -1,0 +1,66 @@
+import random
+import time
+import scipy.integrate
+import numpy as np
+
+def fun(x):
+  return x**2
+
+a = 0
+b = 5
+
+def findM(fun, a, b):
+  global m
+  m = 0.0
+  for i in range(a, b):
+    if fun(i) > m:
+      m = fun(i)
+
+#version 1 - iterative, performs num_points iterations
+def integrate_mc_loop(fun, a, b, num_points=10000):
+
+#to find m (highest point in fun)
+  findM(fun, a, b)
+
+#to find Nbelow (sum of points below the curve)
+  Nbelow = 0 # sum of points under the line
+  for _ in range(num_points):
+    x = random.uniform(a, b) #generate rand x coord
+    y = random.uniform(0.0, m) #generate the rand ycoords, don't save all bc too much mem
+    if y <= fun(x):
+      Nbelow += 1
+
+  return (Nbelow/num_points)*(b-a)*m
+
+#version 2 - uses operations between vectors instead of loops
+def integrate_mc_vectors(fun, a, b, num_points=10000):
+  xArray = np.linspace(a, b, (b-a))
+  yArray = fun(xArray)
+  m = np.max(yArray)
+
+  #create random list of x-values
+  x = np.random.uniform(a, b, num_points)
+  #create y-values
+  y = np.random.uniform(0.0, m, num_points)
+  #mass-check all y values with f(x), create bool vector of t/f
+  below = y <= fun(x)
+  Nbelow = np.count_nonzero(below)
+
+  return (Nbelow/num_points)*(b-a)*m
+
+
+
+t0 = time.time()
+ans = scipy.integrate.quad(fun, a, b)[0]
+t1 = time.time()
+print('Given Method: ', ans, 'time: ', t1-t0)
+
+t0 = time.time()
+result = integrate_mc_loop(fun, a, b, 10000)
+t1 = time.time()
+print('Iterative: ', result, 'time: ', t1-t0)
+
+t0 = time.time()
+result2 = integrate_mc_vectors(fun, a, b, 10000)
+t1 = time.time()
+print('Vectors: ', result2, 'time: ', t1-t0)
