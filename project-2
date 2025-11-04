@@ -1,0 +1,147 @@
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, classification_report
+import seaborn as sns
+
+np.random.seed(42)
+
+def generateData(size=300, bias=0.55):
+  #generate systolic blood pressure data: 90-200mmHg
+  bp = np.random.uniform(90, 200, size)
+  bp = (bp-90)/(200-90)# normalize range [0, 1]
+  #generate cholesterol data: 150-350 mg/dL
+  chol = np.random.uniform(150, 350, size)
+  chol = (chol - 150)/(350-150)# normalize range [0, 1]
+
+
+  z = (0.3*bp
+       + 0.2*chol
+       + 1.2*bp*chol
+       + 0.8*np.sin(2*np.pi*bp)*np.cos(2*np.pi*chol)
+       + 0.5*(bp-0.5)**3
+       + 0.4*(chol-0.5)**3
+       + np.random.normal(0, 0.12, size)# noise
+       - bias
+  )
+
+  risk = (z > 0).astype(int)#risk is only 0 or 1
+
+  return bp, chol, risk
+
+def partOne():
+  bp, ch, risk = generateData(1000)#create data set
+
+  X = np.column_stack([bp, ch])#combine bp and chol into one variable X
+  # X[:, 0] is bp
+  # X[:. 1] is chol
+
+  X_train, X_test, z_train, z_test = train_test_split(X, risk, test_size=0.2, \
+  random_state=42)
+
+  #streamline preprocessing with pipeline
+  #degree 3 lets model include cubic terms, higher degree risks overfitting
+  model = make_pipeline(
+      PolynomialFeatures(degree=3),#to use linear model to represent nonlinear patterns
+      LogisticRegression(max_iter=1000)
+  )
+
+  #train:
+  model.fit(X_train, z_train)
+
+  #predict:
+  #gives probabilities for bp and chol (e.g. 0.7, 0.45, etc.)
+  probs = model.predict_proba(X_test)[:,1]
+  preds = (probs >= 0.5).astype(int)
+
+  # ------------TRUE LABELS PLOT--------------
+  plt.figure()
+  plt.scatter(X[risk==0, 0], X[risk==0, 1], c="blue", label="Low risk(true)")
+  plt.scatter(X[risk==1, 0], X[risk==1, 1], c="red", label="High risk(true)")
+  plt.xlabel("Systolic Blood Pressure (mmHg -> normalized)")
+  plt.ylabel("Cholesterol (mg/dL -> normalized)")
+  plt.title("Cardiovascular Risk with TRUE Labels")
+  plt.legend()
+  plt.show()
+
+  print("\n")
+
+  # ----------MODEL PREDICTION MAP------------
+  X0 = X_test[preds == 0]   # points with no risk "o"
+  X1 = X_test[preds == 1]   # points with risk "x"
+
+  #plot predictions
+  plt.figure()
+  #plot risk = 0:
+  plt.scatter(X0[:,0], X0[:,1], c="blue", label="Low risk (pred)")
+  # Plot risk = 1:
+  plt.scatter(X1[:,0], X1[:,1], c="red", label="High risk (pred)")
+  plt.xlabel("Systolic Blood Pressure (mmHg -> normalized)")
+  plt.ylabel("Cholesterol (mg/dL -> normalized)")
+  plt.title("Cardiovascular Risk Classification PREDICTIONS")
+  plt.legend()
+  plt.show()
+
+  # ----------PREDICTION ACCURACY MAP----------
+
+  # bool masks to compare preds to true z_test
+  mask_high_correct = (preds == 1) & (z_test == 1)
+  mask_high_wrong = (preds == 1) & (z_test == 0)
+  mask_low_correct = (preds == 0) & (z_test == 0)
+  mask_low_wrong = (preds == 0) & (z_test == 1)
+
+  #sanity check
+  print("All lengths match: ", len(preds) == len(z_test) == len(X_test))
+
+  # use masks
+  predicts_high_correct = X_test[mask_high_correct] #red dot
+  predicts_high_wrong = X_test[mask_high_wrong] #red x
+  predicts_low_correct = X_test[mask_low_correct] #blue dot
+  predicts_low_wrong = X_test[mask_low_wrong] #blue x
+
+  plt.figure()
+  plt.scatter(predicts_high_correct[:,0], predicts_high_correct[:,1], c="red", \
+  marker="o", label="predicted high, actual high") # Plot risk = 0 o's
+
+  plt.scatter(predicts_high_wrong[:,0], predicts_high_wrong[:,1], c="red", \
+  marker="x", label="predicted high, actual low") # Plot risk = 1 x's
+
+  plt.scatter(predicts_low_correct[:,0], predicts_low_correct[:,1], c="blue", \
+  marker="o", label="predicted low, actual low") # Plot risk = 0 o's
+
+  plt.scatter(predicts_low_wrong[:,0], predicts_low_wrong[:,1], c="blue", \
+  marker="x", label="predicted low, actual high") # Plot risk = 1 x's
+
+  plt.xlabel("Systolic Blood Pressure (mmHg -> normalized)")
+  plt.ylabel("Cholesterol (mg/dL -> normalized)")
+  plt.title("Cardiovascular Risk Classification with Accuracy of Predictions")
+  plt.legend()
+  plt.show()
+
+  print("Accuracy:", accuracy_score(z_test, preds))
+  print("\n--------Conclusions---------")
+  print("Linear model (degree 1) only captures linear patterns")
+  print("Polynomial degree 2 captures rudimentary non-linearity")
+  print("Polynomial degree 3 captures more detailed non-linearity")
+  print("Polynomial degree 4 shows intricate details, possible overfitting\n")
+  print("Probability curves reflect the confidence level of predictions.\n")
+
+  print("My interaction terms are 1.2 * blood pressurep * cholesterol, and")
+  print("0.8 * sin(2 * pi * bp) * cos(2 * (pi) * chol). These terms add complexity.\n")
+
+  print("The higher the model degree, the more detail the predictor shows.")
+  print("It's a balance between under- and over-fitting.")
+  print("I chose deg 3 to show cubic parts of my function without overfitting.\n")
+
+  print("My generated data set has pockets of unexpected risk results")
+  print("(i.e. negative risk in high bp and chol/pos risk in low bp and chol)")
+  print("These pockets are caused by the sinusoidal parts of my risk function.")
+  print("I kept this to show the realistically messy boundaries of human data.")
+
+
+partOne()
